@@ -12,6 +12,8 @@ D-Druk Game Timer is a party-game scoreboard and round timer for D-Druk. It can 
 - Live penalty buttons for lost cups, lost mini-games, late arrivals, and rule breaks.
 - Automatic standings where the lowest score wins.
 - Game-over podium and full final scoreboard.
+- Dedicated Winner Hall page with a champion spotlight and saved history.
+- Optional team photo upload when saving a winner.
 - Persistent winner list saved locally in `winners.json` or online in Cloudflare D1.
 - Built-in rules modal for quick reference during the game.
 
@@ -115,6 +117,7 @@ Example winner entry:
       "score": 3
     }
   ],
+  "photo": "data:image/jpeg;base64,...",
   "date": "2026-06-17T19:40:02.762Z"
 }
 ```
@@ -135,6 +138,7 @@ Example winner entry:
 | `server.cjs` | The local Node.js server and winner-log API. |
 | `functions/api/winners.js` | Cloudflare Pages Function for the online winner-log API. |
 | `migrations/0001_create_winners.sql` | Cloudflare D1 schema for saved winners. |
+| `migrations/0002_add_winner_photo.sql` | Adds optional winner team photos to saved entries. |
 | `wrangler.jsonc` | Cloudflare Pages and D1 configuration. |
 | `package.json` | Project metadata and the `npm start` command. |
 | `start-game-server.bat` | Easy Windows launcher for the server. |

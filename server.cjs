@@ -48,6 +48,21 @@ function sendError(res, status, message) {
   sendJson(res, status, { error: message });
 }
 
+function cleanPhoto(photo) {
+  if (typeof photo !== 'string' || !photo.trim()) return '';
+
+  const value = photo.trim();
+  if (!/^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)) {
+    throw new Error('Team photo must be a JPEG, PNG, or WebP data URL');
+  }
+
+  if (value.length > 650_000) {
+    throw new Error('Team photo is too large');
+  }
+
+  return value;
+}
+
 function cleanWinnerEntry(entry) {
   if (!entry || typeof entry !== 'object') throw new Error('Missing winner data');
   if (typeof entry.winner !== 'string' || !entry.winner.trim()) throw new Error('Winner name is required');
@@ -59,6 +74,7 @@ function cleanWinnerEntry(entry) {
     rounds: Number.isFinite(Number(entry.rounds)) ? Number(entry.rounds) : 0,
     teams: Number.isFinite(Number(entry.teams)) ? Number(entry.teams) : 0,
     standings: Array.isArray(entry.standings) ? entry.standings : [],
+    photo: cleanPhoto(entry.photo),
     date: entry.date || new Date().toISOString()
   };
 }

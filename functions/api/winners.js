@@ -11,6 +11,21 @@ function error(status, message) {
   return json({ error: message }, status);
 }
 
+function cleanPhoto(photo) {
+  if (typeof photo !== 'string' || !photo.trim()) return '';
+
+  const value = photo.trim();
+  if (!/^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)) {
+    throw new Error('Team photo must be a JPEG, PNG, or WebP data URL');
+  }
+
+  if (value.length > 650_000) {
+    throw new Error('Team photo is too large');
+  }
+
+  return value;
+}
+
 export function cleanWinnerEntry(entry) {
   if (!entry || typeof entry !== 'object') throw new Error('Missing winner data');
   if (typeof entry.winner !== 'string' || !entry.winner.trim()) {
@@ -24,6 +39,7 @@ export function cleanWinnerEntry(entry) {
     rounds: Number.isFinite(Number(entry.rounds)) ? Number(entry.rounds) : 0,
     teams: Number.isFinite(Number(entry.teams)) ? Number(entry.teams) : 0,
     standings: Array.isArray(entry.standings) ? entry.standings : [],
+    photo: cleanPhoto(entry.photo),
     date: entry.date || new Date().toISOString()
   };
 }
@@ -36,13 +52,14 @@ function rowToWinner(row) {
     rounds: row.rounds,
     teams: row.teams,
     standings: JSON.parse(row.standings || '[]'),
+    photo: row.photo || '',
     date: row.date
   };
 }
 
 export async function onRequestGet({ env }) {
   const { results } = await env.DB.prepare(
-    'SELECT winner, members, score, rounds, teams, standings, date FROM winners ORDER BY date DESC, id DESC'
+    'SELECT winner, members, score, rounds, teams, standings, photo, date FROM winners ORDER BY date DESC, id DESC'
   ).all();
 
   return json(results.map(rowToWinner));
@@ -58,8 +75,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   await env.DB.prepare(
-    `INSERT INTO winners (winner, members, score, rounds, teams, standings, date)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO winners (winner, members, score, rounds, teams, standings, photo, date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       entry.winner,
@@ -68,6 +85,7 @@ export async function onRequestPost({ request, env }) {
       entry.rounds,
       entry.teams,
       JSON.stringify(entry.standings),
+      entry.photo,
       entry.date
     )
     .run();
