@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ddruk",
+  "compatibility_date": "2026-06-17",
+  "pages_build_output_dir": "public",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ddruk-winners",
+      "database_id": "38e51255-7c4b-400a-bf73-387aae92ec54",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

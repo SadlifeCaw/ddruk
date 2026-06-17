@@ -1,8 +1,8 @@
 # D-Druk Game Timer
 
-D-Druk Game Timer is a local party-game scoreboard and round timer for D-Druk. It runs in the browser, but it is served by a small Node.js server so winners can be saved to a file and shown again the next time the app opens.
+D-Druk Game Timer is a party-game scoreboard and round timer for D-Druk. It can run locally with a small Node.js server, or on Cloudflare Pages with Cloudflare D1 storing the winners list.
 
-![Main D-Druk timer dashboard](docs/screenshots/main-dashboard.png)
+![Main D-Druk timer dashboard](public/docs/screenshots/main-dashboard.png)
 
 ## Features
 
@@ -12,18 +12,18 @@ D-Druk Game Timer is a local party-game scoreboard and round timer for D-Druk. I
 - Live penalty buttons for lost cups, lost mini-games, late arrivals, and rule breaks.
 - Automatic standings where the lowest score wins.
 - Game-over podium and full final scoreboard.
-- Persistent winner list saved by the server in `winners.json`.
+- Persistent winner list saved locally in `winners.json` or online in Cloudflare D1.
 - Built-in rules modal for quick reference during the game.
 
 ## Screenshots
 
 ### Main Game View
 
-![Main game view with timer and team standings](docs/screenshots/main-dashboard.png)
+![Main game view with timer and team standings](public/docs/screenshots/main-dashboard.png)
 
 ### Game Over View
 
-![Game over podium and standings](docs/screenshots/game-over.png)
+![Game over podium and standings](public/docs/screenshots/game-over.png)
 
 ## Quick Start
 
@@ -55,6 +55,34 @@ Then open:
 http://localhost:3000
 ```
 
+## Cloudflare Hosting
+
+This repo is ready for Cloudflare Pages:
+
+1. Create a D1 database named `ddruk-winners`.
+2. Replace `replace-with-cloudflare-d1-database-id` in `wrangler.jsonc` with the database ID from Cloudflare.
+3. Apply the database migration:
+
+```bash
+npx wrangler d1 migrations apply ddruk-winners --remote
+```
+
+4. Deploy the Pages site:
+
+```bash
+npm run deploy
+```
+
+5. In Cloudflare Pages, add your custom domain or subdomain.
+6. In Cloudflare Zero Trust, create an Access application for that hostname and allow the email addresses that should be able to log in.
+
+For local Cloudflare-style testing, run:
+
+```bash
+npm install
+npm run dev:cloudflare
+```
+
 ## How Winner Logging Works
 
 When a game ends, the app builds a final result from the current standings. Pressing **Save winner to the list** sends that result to the local server:
@@ -63,7 +91,7 @@ When a game ends, the app builds a final result from the current standings. Pres
 POST /api/winners
 ```
 
-The server adds the newest result to the top of `winners.json`. When the Winners modal opens, the app reads:
+The API stores the newest result first. Locally, the Node server writes `winners.json`. On Cloudflare, the Pages Function writes to D1. When the Winners modal opens, the app reads:
 
 ```text
 GET /api/winners
@@ -103,8 +131,11 @@ Example winner entry:
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | The complete browser app and game UI. |
-| `server.js` | The local Node.js server and winner-log API. |
+| `public/index.html` | The complete browser app and game UI. |
+| `server.cjs` | The local Node.js server and winner-log API. |
+| `functions/api/winners.js` | Cloudflare Pages Function for the online winner-log API. |
+| `migrations/0001_create_winners.sql` | Cloudflare D1 schema for saved winners. |
+| `wrangler.jsonc` | Cloudflare Pages and D1 configuration. |
 | `package.json` | Project metadata and the `npm start` command. |
 | `start-game-server.bat` | Easy Windows launcher for the server. |
 | `winners.json` | Local winner history created and updated by the server. |

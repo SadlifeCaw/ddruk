@@ -4,6 +4,7 @@ const path = require('path');
 
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = __dirname;
+const STATIC_ROOT = path.join(ROOT, 'public');
 const WINNERS_FILE = path.join(ROOT, 'winners.json');
 
 const contentTypes = {
@@ -96,9 +97,9 @@ async function handleApi(req, res) {
 async function serveStatic(req, res) {
   const requestPath = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
   const relativePath = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/, '');
-  const filePath = path.resolve(ROOT, relativePath);
+  const filePath = path.resolve(STATIC_ROOT, relativePath);
 
-  if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
+  if (filePath !== STATIC_ROOT && !filePath.startsWith(STATIC_ROOT + path.sep)) {
     sendError(res, 403, 'Forbidden');
     return;
   }

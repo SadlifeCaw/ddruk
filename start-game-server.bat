@@ -6,12 +6,12 @@ set "CODEX_NODE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\depend
 
 node --version >nul 2>nul
 if "%ERRORLEVEL%"=="0" (
-  node server.js
+  node server.cjs
   goto :eof
 )
 
 if exist "%CODEX_NODE%" (
-  "%CODEX_NODE%" server.js
+  "%CODEX_NODE%" server.cjs
   goto :eof
 )
 

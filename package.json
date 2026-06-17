@@ -2,7 +2,14 @@
   "name": "ddruk-game-server",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.cjs",
+    "dev:cloudflare": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public --project-name ddruk --branch main --commit-dirty=true",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.22.0"
   }
 }
