@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { cleanWinnerEntry } from '../functions/api/winners.js';
+import { cleanWinnerEntry, isAuthorizedAdmin } from '../functions/api/winners.js';
 
 test('cleanWinnerEntry trims and normalizes a valid winner entry', () => {
   const entry = cleanWinnerEntry({
@@ -45,4 +45,17 @@ test('cleanWinnerEntry rejects oversized team photos', () => {
   const photo = `data:image/png;base64,${'a'.repeat(700_000)}`;
 
   assert.throws(() => cleanWinnerEntry({ winner: 'Team Photo', photo }), /Team photo is too large/);
+});
+
+test('isAuthorizedAdmin requires the configured passcode', () => {
+  const allowed = new Request('https://example.com/api/winners', {
+    headers: { 'X-Admin-Passcode': 'secret' }
+  });
+  const denied = new Request('https://example.com/api/winners', {
+    headers: { 'X-Admin-Passcode': 'wrong' }
+  });
+
+  assert.equal(isAuthorizedAdmin(allowed, 'secret'), true);
+  assert.equal(isAuthorizedAdmin(denied, 'secret'), false);
+  assert.equal(isAuthorizedAdmin(allowed, ''), false);
 });

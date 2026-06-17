@@ -412,6 +412,23 @@
   .winner-body h3{font-size:1.18rem;margin-bottom:5px}
   .winner-meta{font-size:.8rem;color:var(--muted);line-height:1.55}
   .winner-meta b{color:var(--cyan);font-family:'Space Mono',monospace}
+  .danger-btn{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.78rem;
+    padding:8px 11px;border-radius:10px;cursor:pointer;
+    color:#ffd8ec;background:rgba(255,45,149,.12);border:1px solid rgba(255,45,149,.44);
+  }
+  .danger-btn:hover{border-color:var(--magenta);box-shadow:0 0 16px rgba(255,45,149,.24)}
+  .delete-hint{
+    display:none;margin:-8px 0 16px;padding:12px 14px;border-radius:12px;
+    color:#ffd8ec;background:rgba(255,45,149,.12);border:1px solid rgba(255,45,149,.4);
+    font-weight:700;text-align:center;
+  }
+  .delete-mode .delete-hint{display:block}
+  .delete-mode .winner-card,.delete-mode .champion-card{
+    cursor:pointer;border-color:rgba(255,45,149,.78);
+    box-shadow:0 0 0 1px rgba(255,45,149,.4),0 0 28px rgba(255,45,149,.18);
+  }
+  .delete-mode .winner-card:hover,.delete-mode .champion-card:hover{transform:translateY(-2px)}
   .winner-empty{
     border:1.5px dashed var(--line);border-radius:18px;padding:42px 18px;text-align:center;color:var(--muted);
     background:rgba(10,6,18,.35);
@@ -615,10 +632,11 @@
         <p>Immortalized chaos · newest legends first</p>
       </div>
       <div class="header-buttons">
-        <button class="ghost-btn" id="clearHallBtn" onclick="clearHall()">Clear list</button>
+        <button class="ghost-btn" id="deleteHallBtn" onclick="toggleDeleteMode()">Delete</button>
         <button class="ghost-btn" onclick="closeHall()">Back to game</button>
       </div>
     </div>
+    <div class="delete-hint" id="deleteHint">Choose one winner to delete.</div>
     <div id="hallList"></div>
   </div>
 </section>
@@ -789,6 +807,8 @@
   /* ---- hall of fame (winner list) ---- */
   let lastResult = null;
   let pendingWinnerPhoto = '';
+  let hallAdminPasscode = sessionStorage.getItem('ddrukAdminPasscode') || '';
+  let hallDeleteMode = false;
 
   async function loadHall(){
     const response = await fetch('/api/winners');
@@ -806,9 +826,12 @@
     return response.json();
   }
 
-  async function clearHallEntries(){
-    const response = await fetch('/api/winners', { method:'DELETE' });
-    if(!response.ok) throw new Error('Could not clear winner list');
+  async function deleteHallEntry(id){
+    const response = await fetch(`/api/winners?id=${encodeURIComponent(id)}`, {
+      method:'DELETE',
+      headers:{ 'X-Admin-Passcode': hallAdminPasscode }
+    });
+    if(!response.ok) throw new Error('Could not delete winner');
     return response.json();
   }
 
@@ -844,6 +867,10 @@
          + ' · ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
   }
 
+  function jsString(value){
+    return escapeHtml(JSON.stringify(String(value ?? '')));
+  }
+
   function winnerPhotoMarkup(photo, cls='winner-shot'){
     return photo
       ? `<div class="${cls}"><img src="${photo}" alt="Winner team photo"></div>`
@@ -853,7 +880,7 @@
   async function renderHall(){
     const el=$('hallList');
     el.innerHTML='<div class="winner-empty">Loading winners...</div>';
-    $('clearHallBtn').style.display='none';
+    updateHallDeleteControls();
     let list=[];
     try{
       list=await loadHall();
@@ -863,10 +890,9 @@
     }
     if(list.length===0){
       el.innerHTML='<div class="winner-empty">No games saved yet. Finish a game and save the winner!</div>';
-      $('clearHallBtn').style.display='none';
+      updateHallDeleteControls();
       return;
     }
-    $('clearHallBtn').style.display='';
     const champ=list[0];
     const champRows=(champ.standings||[]).slice(0,5).map((r,i)=>`
       <div class="glory-row">
@@ -874,7 +900,7 @@
         <span>${Number(r.score)||0} pts</span>
       </div>`).join('');
     const archive=list.slice(1).map((g,i)=>`
-      <article class="winner-card">
+      <article class="winner-card" onclick="chooseWinnerToDelete(${jsString(g.id)},${jsString(g.winner)})">
         ${winnerPhotoMarkup(g.photo)}
         <div class="winner-body">
           <div class="winner-rank">Legend #${i+2}</div>
@@ -886,7 +912,7 @@
       </article>`).join('');
     el.innerHTML=`
       <section class="winner-hero">
-        <article class="champion-card">
+        <article class="champion-card" onclick="chooseWinnerToDelete(${jsString(champ.id)},${jsString(champ.winner)})">
           ${champ.photo?`<img class="champion-photo" src="${champ.photo}" alt="Champion team photo">`:'<div class="champion-fallback">🏆</div>'}
           <div class="champion-copy">
             <div class="champion-kicker">Current champion</div>
@@ -906,21 +932,50 @@
         </aside>
       </section>
       ${archive?`<section class="winners-grid">${archive}</section>`:''}`;
+    updateHallDeleteControls();
   }
 
   function openHall(){ $('winnersPage').classList.add('active'); renderHall(); }
-  function closeHall(){ $('winnersPage').classList.remove('active'); }
-  async function clearHall(){
-    if(confirm('Clear the entire winner list? This cannot be undone.')){
+  function closeHall(){
+    hallDeleteMode=false;
+    updateHallDeleteControls();
+    $('winnersPage').classList.remove('active');
+  }
+  function updateHallDeleteControls(){
+    $('winnersPage').classList.toggle('delete-mode',hallDeleteMode);
+    $('deleteHallBtn').textContent=hallDeleteMode?'Cancel delete':'Delete';
+  }
+  function toggleDeleteMode(){
+    if(hallDeleteMode){
+      hallDeleteMode=false;
+      updateHallDeleteControls();
+      return;
+    }
+    if(!hallAdminPasscode){
+      const passcode=prompt('Admin passcode');
+      if(!passcode) return;
+      hallAdminPasscode=passcode;
+      sessionStorage.setItem('ddrukAdminPasscode',passcode);
+    }
+    hallDeleteMode=true;
+    updateHallDeleteControls();
+  }
+  async function chooseWinnerToDelete(id,name){
+    if(!hallDeleteMode) return;
+    if(!id) return alert('This saved winner cannot be deleted individually.');
+    if(confirm(`Delete ${name} from the Winner Hall?`)){
       try{
-        await clearHallEntries();
+        await deleteHallEntry(id);
+        hallDeleteMode=false;
         renderHall();
       }catch(e){
-        $('hallList').innerHTML='<div class="winner-empty">Could not clear winners. Is the game server running?</div>';
+        alert('Could not delete that winner. Check the admin passcode and try again.');
+        hallAdminPasscode='';
+        sessionStorage.removeItem('ddrukAdminPasscode');
+        updateHallDeleteControls();
       }
     }
   }
-
   function clearWinnerPhoto(){
     pendingWinnerPhoto='';
     $('winnerPhotoInput').value='';

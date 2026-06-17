@@ -14,6 +14,7 @@ D-Druk Game Timer is a party-game scoreboard and round timer for D-Druk. It can 
 - Game-over podium and full final scoreboard.
 - Dedicated Winner Hall page with a champion spotlight and saved history.
 - Optional team photo upload when saving a winner.
+- Admin-gated winner deletion: press Delete, enter the passcode, then choose exactly one saved winner to remove.
 - Persistent winner list saved locally in `winners.json` or online in Cloudflare D1.
 - Built-in rules modal for quick reference during the game.
 
@@ -75,8 +76,14 @@ npx wrangler d1 migrations apply ddruk-winners --remote
 npm run deploy
 ```
 
-5. In Cloudflare Pages, add your custom domain or subdomain.
-6. In Cloudflare Zero Trust, create an Access application for that hostname and allow the email addresses that should be able to log in.
+5. Set the admin passcode secret used for deleting winners:
+
+```bash
+npx wrangler pages secret put ADMIN_PASSCODE --project-name ddruk
+```
+
+6. In Cloudflare Pages, add your custom domain or subdomain.
+7. Optional: In Cloudflare Zero Trust, create an Access application for that hostname if you want a login gate.
 
 For local Cloudflare-style testing, run:
 
@@ -128,7 +135,7 @@ Example winner entry:
 | --- | --- | --- |
 | `GET` | `/api/winners` | Returns all saved winner entries, newest first. |
 | `POST` | `/api/winners` | Saves a new winner entry. |
-| `DELETE` | `/api/winners` | Clears the local winner list. |
+| `DELETE` | `/api/winners?id=<id>` | Deletes one saved winner. Requires the admin passcode. |
 
 ## Files
 
@@ -156,4 +163,10 @@ Start the server:
 npm start
 ```
 
-Edit `index.html` for the app UI or `server.js` for the API. Refresh `http://localhost:3000` after changes.
+Edit `public/index.html` for the app UI or `server.cjs` for the local API. Refresh `http://localhost:3000` after changes.
+
+The local Node server uses `ADMIN_PASSCODE` for Winner Hall delete actions. If it is not set, local development uses:
+
+```text
+ddruk-admin
+```

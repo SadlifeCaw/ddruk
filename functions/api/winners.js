@@ -46,6 +46,7 @@ export function cleanWinnerEntry(entry) {
 
 function rowToWinner(row) {
   return {
+    id: String(row.id),
     winner: row.winner,
     members: row.members,
     score: row.score,
@@ -57,9 +58,16 @@ function rowToWinner(row) {
   };
 }
 
+export function isAuthorizedAdmin(request, adminPasscode) {
+  const expected = typeof adminPasscode === 'string' ? adminPasscode.trim() : '';
+  const provided = request.headers.get('X-Admin-Passcode')?.trim() || '';
+
+  return Boolean(expected) && provided === expected;
+}
+
 export async function onRequestGet({ env }) {
   const { results } = await env.DB.prepare(
-    'SELECT winner, members, score, rounds, teams, standings, photo, date FROM winners ORDER BY date DESC, id DESC'
+    'SELECT id, winner, members, score, rounds, teams, standings, photo, date FROM winners ORDER BY date DESC, id DESC'
   ).all();
 
   return json(results.map(rowToWinner));
@@ -93,9 +101,19 @@ export async function onRequestPost({ request, env }) {
   return json(entry, 201);
 }
 
-export async function onRequestDelete({ env }) {
-  await env.DB.prepare('DELETE FROM winners').run();
-  return json([]);
+export async function onRequestDelete({ request, env }) {
+  if (!isAuthorizedAdmin(request, env.ADMIN_PASSCODE)) {
+    return error(403, 'Admin passcode is required');
+  }
+
+  const id = new URL(request.url).searchParams.get('id');
+
+  if (!id) {
+    return error(400, 'Winner id is required');
+  }
+
+  await env.DB.prepare('DELETE FROM winners WHERE id = ?').bind(id).run();
+  return json({ deleted: id });
 }
 
 export function onRequest() {

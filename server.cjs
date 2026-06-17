@@ -1,11 +1,13 @@
 const http = require('http');
 const fs = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = __dirname;
 const STATIC_ROOT = path.join(ROOT, 'public');
 const WINNERS_FILE = path.join(ROOT, 'winners.json');
+const LOCAL_ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'ddruk-admin';
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -68,6 +70,7 @@ function cleanWinnerEntry(entry) {
   if (typeof entry.winner !== 'string' || !entry.winner.trim()) throw new Error('Winner name is required');
 
   return {
+    id: typeof entry.id === 'string' && entry.id ? entry.id : crypto.randomUUID(),
     winner: entry.winner.trim().slice(0, 120),
     members: typeof entry.members === 'string' ? entry.members.trim().slice(0, 500) : '',
     score: Number.isFinite(Number(entry.score)) ? Number(entry.score) : 0,
@@ -79,8 +82,12 @@ function cleanWinnerEntry(entry) {
   };
 }
 
+function isAuthorizedAdmin(req) {
+  return req.headers['x-admin-passcode'] === LOCAL_ADMIN_PASSCODE;
+}
+
 async function handleApi(req, res) {
-  const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+  const { pathname, searchParams } = new URL(req.url, `http://${req.headers.host}`);
 
   if (pathname !== '/api/winners') {
     sendError(res, 404, 'Not found');
@@ -88,7 +95,15 @@ async function handleApi(req, res) {
   }
 
   if (req.method === 'GET') {
-    sendJson(res, 200, await readWinners());
+    const winners = await readWinners();
+    let changed = false;
+    const normalized = winners.map(winner => {
+      if (winner && winner.id) return winner;
+      changed = true;
+      return { ...winner, id: crypto.randomUUID() };
+    });
+    if (changed) await writeWinners(normalized);
+    sendJson(res, 200, normalized);
     return;
   }
 
@@ -102,8 +117,20 @@ async function handleApi(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    await writeWinners([]);
-    sendJson(res, 200, []);
+    if (!isAuthorizedAdmin(req)) {
+      sendError(res, 403, 'Admin passcode is required');
+      return;
+    }
+
+    const id = searchParams.get('id');
+    if (!id) {
+      sendError(res, 400, 'Winner id is required');
+      return;
+    }
+
+    const winners = await readWinners();
+    await writeWinners(winners.filter(winner => winner.id !== id));
+    sendJson(res, 200, { deleted: id });
     return;
   }
 
