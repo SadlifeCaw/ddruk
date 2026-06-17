@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D-DRUK · Game Timer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@700&display=swap');
+
+  :root{
+    --bg:#0a0612;
+    --bg2:#12082a;
+    --panel:#170a30;
+    --panel2:#1f0f3d;
+    --ink:#f3e9ff;
+    --muted:#9b86c4;
+    --magenta:#ff2d95;
+    --cyan:#16f2e0;
+    --lime:#c6ff3d;
+    --violet:#9d4eff;
+    --line:rgba(157,78,255,.28);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  body{
+    font-family:'Space Grotesk',sans-serif;
+    background:
+      radial-gradient(900px 600px at 12% -5%, rgba(255,45,149,.18), transparent 60%),
+      radial-gradient(900px 700px at 100% 0%, rgba(22,242,224,.14), transparent 55%),
+      radial-gradient(700px 700px at 50% 120%, rgba(157,78,255,.20), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    padding:24px 18px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .grid-overlay{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(157,78,255,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(157,78,255,.05) 1px,transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 80%);
+  }
+
+  .container{max-width:1340px;margin:0 auto;position:relative;z-index:1}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;margin-bottom:26px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo-mark{
+    width:54px;height:54px;flex:0 0 auto;border-radius:14px;
+    display:grid;place-items:center;font-size:1.7rem;
+    background:linear-gradient(135deg,var(--magenta),var(--violet));
+    box-shadow:0 0 0 2px rgba(255,45,149,.4), 0 0 26px rgba(255,45,149,.5);
+    transform:rotate(-4deg);
+  }
+  .title h1{
+    font-family:'Bungee',cursive;font-size:2.1rem;line-height:.95;letter-spacing:.5px;
+    background:linear-gradient(92deg,var(--cyan),var(--magenta) 70%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 28px rgba(255,45,149,.25);
+  }
+  .title .sub{font-size:.72rem;letter-spacing:.32em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .header-buttons{display:flex;gap:10px}
+
+  .ghost-btn{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.86rem;
+    padding:11px 18px;border-radius:11px;cursor:pointer;
+    background:rgba(157,78,255,.08);
+    border:1.5px solid var(--line);color:var(--ink);
+    transition:.18s;display:inline-flex;align-items:center;gap:7px;
+  }
+  .ghost-btn:hover{border-color:var(--cyan);box-shadow:0 0 18px rgba(22,242,224,.3);transform:translateY(-1px)}
+
+  /* ---------- stage ---------- */
+  .stage{
+    position:relative;border-radius:22px;padding:30px 26px 26px;
+    background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1.5px solid var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 24px 60px rgba(0,0,0,.5);
+    overflow:hidden;margin-bottom:22px;
+  }
+  .stage::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(420px 220px at 50% -40%, rgba(22,242,224,.16), transparent 70%);
+  }
+  .stage-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:relative}
+  .round-badge{
+    font-family:'Bungee',cursive;font-size:1rem;letter-spacing:.5px;
+    padding:9px 18px;border-radius:999px;color:#13041f;
+    background:linear-gradient(90deg,var(--lime),var(--cyan));
+    box-shadow:0 0 22px rgba(198,255,61,.4);
+  }
+  .round-badge span{color:#13041f}
+  .phase-pill{
+    font-size:.74rem;letter-spacing:.22em;text-transform:uppercase;font-weight:700;
+    padding:8px 14px;border-radius:999px;color:var(--cyan);
+    border:1.5px solid rgba(22,242,224,.4);background:rgba(22,242,224,.07);
+  }
+  .phase-pill.live{color:var(--lime);border-color:rgba(198,255,61,.5);background:rgba(198,255,61,.08)}
+  .phase-pill.paused{color:var(--magenta);border-color:rgba(255,45,149,.5);background:rgba(255,45,149,.08)}
+
+  .timer{
+    font-family:'Space Mono',monospace;font-weight:700;
+    font-size:clamp(4.5rem,16vw,9.5rem);line-height:1;text-align:center;
+    margin:22px 0 18px;letter-spacing:-2px;font-variant-numeric:tabular-nums;
+    color:var(--ink);text-shadow:0 0 40px rgba(22,242,224,.25);
+    transition:color .3s,text-shadow .3s;position:relative;
+  }
+  .timer.warning{color:var(--lime);text-shadow:0 0 44px rgba(198,255,61,.55)}
+  .timer.danger{color:var(--magenta);text-shadow:0 0 50px rgba(255,45,149,.7);animation:pulse .8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+  .progress-track{height:10px;border-radius:999px;background:rgba(157,78,255,.16);overflow:hidden;position:relative}
+  .progress-fill{
+    height:100%;width:0;border-radius:999px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    box-shadow:0 0 16px rgba(255,45,149,.5);transition:width 1s linear;
+  }
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:22px 0 30px}
+  .ctrl{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1rem;
+    padding:15px 30px;border-radius:13px;cursor:pointer;border:1.5px solid var(--line);
+    background:rgba(157,78,255,.1);color:var(--ink);transition:.18s;
+    display:inline-flex;align-items:center;gap:9px;
+  }
+  .ctrl:hover{transform:translateY(-2px);border-color:var(--cyan);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+  .ctrl:active{transform:translateY(0)}
+  .ctrl:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+  .ctrl.primary{
+    background:linear-gradient(120deg,var(--magenta),var(--violet));border-color:transparent;
+    box-shadow:0 0 26px rgba(255,45,149,.45);
+  }
+  .ctrl.primary:hover{box-shadow:0 0 36px rgba(255,45,149,.7)}
+  .ctrl.finish{background:linear-gradient(120deg,var(--lime),var(--cyan));color:#13041f;border-color:transparent}
+
+  /* ---------- standings strip ---------- */
+  .section-label{
+    display:flex;align-items:center;gap:12px;margin:0 4px 16px;
+  }
+  .section-label h2{font-family:'Bungee',cursive;font-size:1.05rem;letter-spacing:.5px;color:var(--ink)}
+  .section-label .hint{font-size:.78rem;color:var(--muted)}
+  .section-label .rule{flex:1;height:1.5px;background:linear-gradient(90deg,var(--line),transparent)}
+
+  /* ---------- teams ---------- */
+  .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;margin-bottom:30px}
+  .team-card{
+    position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1.5px solid var(--line);border-radius:18px;padding:20px 20px 18px;
+    transition:.2s;overflow:hidden;
+  }
+  .team-card::after{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,var(--cyan),var(--magenta));opacity:.7;
+  }
+  .team-card:hover{border-color:rgba(22,242,224,.45);transform:translateY(-3px)}
+  .team-card.leader{border-color:var(--lime);box-shadow:0 0 0 1px var(--lime),0 0 28px rgba(198,255,61,.25)}
+  .team-card.leader::after{background:linear-gradient(180deg,var(--lime),var(--cyan))}
+
+  .team-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
+  .team-name{font-weight:700;font-size:1.15rem;display:flex;align-items:center;gap:8px}
+  .team-members{font-size:.78rem;color:var(--muted);margin-top:3px;line-height:1.3}
+  .crown{font-size:1rem;filter:drop-shadow(0 0 6px rgba(198,255,61,.8))}
+  .team-points{
+    font-family:'Space Mono',monospace;font-size:2.3rem;font-weight:700;line-height:1;
+    color:var(--cyan);text-shadow:0 0 18px rgba(22,242,224,.4);
+  }
+  .points-label{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-align:right;margin-top:2px}
+
+  .penalty-log{margin:14px 0 12px;min-height:30px;display:flex;flex-direction:column;gap:7px}
+  .log-empty{font-size:.85rem;color:var(--muted);font-style:italic;padding:8px 0;text-align:center;opacity:.7}
+  .log-item{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    background:rgba(10,6,18,.55);border:1px solid var(--line);border-radius:10px;
+    padding:8px 11px;font-size:.86rem;animation:popin .25s ease;
+  }
+  @keyframes popin{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+  .log-item .lbl{display:flex;align-items:center;gap:7px}
+  .log-item .pts{font-family:'Space Mono',monospace;font-weight:700;color:var(--magenta)}
+  .log-item .rnd{font-size:.72rem;color:var(--muted);min-width:30px;text-align:right}
+  .log-item .undo{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;
+    padding:0 2px;transition:.15s;line-height:1;
+  }
+  .log-item .undo:hover{color:var(--magenta)}
+
+  .add-row{display:flex;gap:7px;flex-wrap:wrap}
+  .pen-btn{
+    flex:1 1 0;min-width:0;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.74rem;
+    padding:9px 5px;border-radius:10px;cursor:pointer;border:1.5px solid var(--line);
+    background:rgba(157,78,255,.1);color:var(--ink);transition:.16s;
+    display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.1;text-align:center;
+  }
+  .pen-btn .em{font-size:1.05rem}
+  .pen-btn .pv{font-size:.66rem;color:var(--muted)}
+  .pen-btn:hover{border-color:var(--magenta);background:rgba(255,45,149,.14);transform:translateY(-1px)}
+  .pen-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    display:none;position:fixed;inset:0;z-index:1000;padding:20px;
+    background:rgba(6,3,12,.86);backdrop-filter:blur(6px);
+    justify-content:center;align-items:flex-start;overflow-y:auto;
+  }
+  .overlay.active{display:flex}
+  .modal{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1.5px solid var(--line);border-radius:20px;padding:30px;
+    max-width:620px;width:100%;margin:auto;box-shadow:0 30px 80px rgba(0,0,0,.6);
+  }
+  .modal h2{font-family:'Bungee',cursive;font-size:1.5rem;margin-bottom:22px;
+    background:linear-gradient(92deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .field{margin-bottom:20px}
+  .field label{display:block;margin-bottom:8px;font-weight:700;font-size:.9rem;color:var(--ink)}
+  .field input{
+    width:100%;padding:12px 14px;border-radius:11px;font-size:1rem;
+    background:rgba(10,6,18,.6);border:1.5px solid var(--line);color:var(--ink);
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .field input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(22,242,224,.18)}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .team-name-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .team-name-row .tag{min-width:74px;font-size:.82rem;color:var(--muted);font-weight:700}
+  .team-name-row input{flex:1}
+  .team-setup{background:rgba(10,6,18,.4);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:11px}
+  .team-setup .team-name-row{margin-bottom:8px}
+  .members-input{width:100%;padding:10px 12px;border-radius:10px;font-size:.92rem;
+    background:rgba(10,6,18,.6);border:1.5px solid var(--line);color:var(--ink);
+    font-family:'Space Grotesk',sans-serif}
+  .members-input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(22,242,224,.18)}
+  .members-input::placeholder,.team-name-row input::placeholder{color:var(--muted);opacity:.7}
+  .modal-actions{display:flex;gap:12px;margin-top:26px}
+  .modal-actions .ctrl{flex:1;justify-content:center}
+
+  .rules h3{color:var(--cyan);font-family:'Bungee',cursive;font-size:1rem;margin:22px 0 10px;letter-spacing:.5px}
+  .rules h4{color:var(--lime);font-size:1rem;margin:14px 0 6px}
+  .rules p{color:#d7c8f0;line-height:1.65;margin-bottom:12px;font-size:.95rem}
+  .rules ul{margin:0 0 14px 20px;color:#d7c8f0;line-height:1.7;font-size:.95rem}
+  .rules li{margin-bottom:6px}
+  .rules .tagline{text-align:center;color:var(--magenta);font-style:italic;margin-top:22px;font-weight:500}
+  .pen-legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 14px}
+  .pen-legend div{background:rgba(10,6,18,.5);border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:.86rem;display:flex;justify-content:space-between;gap:8px}
+  .pen-legend b{color:var(--magenta);font-family:'Space Mono',monospace}
+
+  /* ---------- countdown overlay ---------- */
+  .countdown{
+    display:none;position:fixed;inset:0;z-index:1100;
+    background:radial-gradient(circle at 50% 50%, rgba(31,15,61,.97), rgba(6,3,12,.99));
+    justify-content:center;align-items:center;flex-direction:column;text-align:center;
+  }
+  .countdown.active{display:flex}
+  .cd-label{font-size:.85rem;letter-spacing:.35em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .cd-number{
+    font-family:'Space Mono',monospace;font-weight:700;
+    font-size:clamp(7rem,34vw,20rem);line-height:1;color:var(--magenta);
+    text-shadow:0 0 60px rgba(255,45,149,.7);
+  }
+  @keyframes cdpulse{0%{transform:scale(.5);opacity:0}45%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+  .cd-final{
+    font-family:'Bungee',cursive;color:var(--ink);line-height:1.5;padding:0 28px;max-width:90vw;
+    font-size:clamp(1.4rem,5vw,2.4rem);
+  }
+  .cd-final .big{display:block;font-size:1.4em;margin-bottom:12px;
+    background:linear-gradient(92deg,var(--lime),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* ---------- game over ---------- */
+  .gameover{
+    display:none;position:fixed;inset:0;z-index:1090;padding:30px 18px;overflow-y:auto;
+    background:radial-gradient(circle at 50% 0%, rgba(255,45,149,.16), transparent 55%),
+               radial-gradient(circle at 50% 100%, rgba(22,242,224,.12), transparent 55%),
+               rgba(6,3,12,.98);
+    justify-content:center;align-items:flex-start;
+  }
+  .gameover.active{display:flex}
+  .go-card{max-width:640px;width:100%;margin:auto;text-align:center}
+  .go-card h2{font-family:'Bungee',cursive;font-size:clamp(1.8rem,7vw,3rem);margin-bottom:6px;
+    background:linear-gradient(92deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .go-card .go-sub{color:var(--muted);letter-spacing:.18em;text-transform:uppercase;font-size:.78rem;margin-bottom:28px}
+
+  .podium{display:flex;justify-content:center;align-items:flex-end;gap:14px;margin-bottom:30px}
+  .pod{flex:1;max-width:170px;border-radius:16px 16px 0 0;padding:16px 10px 14px;position:relative;
+    border:1.5px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel))}
+  .pod .medal{font-size:1.8rem;display:block;margin-bottom:6px}
+  .pod .pname{font-weight:700;font-size:1rem;margin-bottom:4px;word-break:break-word}
+  .pod .ppts{font-family:'Space Mono',monospace;font-size:1.5rem;color:var(--cyan)}
+  .pod .ppts small{font-size:.6rem;color:var(--muted);display:block;letter-spacing:.15em;text-transform:uppercase}
+  .pod.p1{height:200px;border-color:var(--lime);box-shadow:0 0 30px rgba(198,255,61,.3)}
+  .pod.p1 .ppts{color:var(--lime)}
+  .pod.p2{height:160px}
+  .pod.p3{height:130px}
+  .go-note{font-size:.82rem;color:var(--muted);margin-bottom:8px}
+  .full-board{margin:18px 0 26px;text-align:left}
+  .fb-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:11px;
+    background:rgba(10,6,18,.5);border:1px solid var(--line);margin-bottom:7px}
+  .fb-row .rank{font-family:'Space Mono',monospace;font-weight:700;color:var(--muted);min-width:24px}
+  .fb-row .nm{flex:1;font-weight:700;display:flex;flex-direction:column;gap:2px}
+  .fb-row .fb-members{font-weight:400;font-size:.76rem;color:var(--muted)}
+  .fb-row .pt{font-family:'Space Mono',monospace;color:var(--cyan)}
+  .fb-row.win{border-color:var(--lime)}
+  .fb-row.win .rank{color:var(--lime)}
+
+  footer{text-align:center;color:var(--muted);font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;margin-top:30px;opacity:.7}
+
+  /* ---------- hall of fame ---------- */
+  .hall-empty{color:var(--muted);font-style:italic;text-align:center;padding:26px 0}
+  .hall-entry{
+    background:rgba(10,6,18,.5);border:1px solid var(--line);border-radius:13px;
+    padding:14px 16px;margin-bottom:11px;border-left:4px solid var(--lime);
+  }
+  .hall-entry .he-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px}
+  .hall-entry .he-win{font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:7px}
+  .hall-entry .he-date{font-size:.72rem;color:var(--muted);white-space:nowrap}
+  .hall-entry .he-members{font-size:.86rem;color:var(--ink);margin-bottom:5px;opacity:.85}
+  .hall-entry .he-meta{font-size:.8rem;color:var(--muted)}
+  .hall-entry .he-meta b{color:var(--cyan);font-family:'Space Mono',monospace}
+
+  @media(max-width:540px){
+    .title h1{font-size:1.6rem}
+    .ghost-btn{padding:10px 13px;font-size:.8rem}
+    .controls .ctrl{flex:1 1 44%;justify-content:center;padding:14px 14px}
+    .two-col{grid-template-columns:1fr}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="grid-overlay"></div>
+<div class="container">
+
+  <header>
+    <div class="brand">
+      <div class="logo-mark">🍺</div>
+      <div class="title">
+        <h1>D-DRUK</h1>
+        <div class="sub">Game Timer · Lowest score wins</div>
+      </div>
+    </div>
+    <div class="header-buttons">
+      <button class="ghost-btn" onclick="openHall()">🏅 Winners</button>
+      <button class="ghost-btn" onclick="openRules()">📖 Rules</button>
+      <button class="ghost-btn" onclick="openSettings()">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="stage-top">
+      <div class="round-badge">ROUND <span id="currentRound">1</span> / <span id="totalRounds">6</span></div>
+      <div class="phase-pill" id="phasePill">Ready</div>
+    </div>
+    <div class="timer" id="timer">10:00</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl primary" id="startBtn" onclick="toggleTimer()">▶ Start Round</button>
+    <button class="ctrl" onclick="resetRound()">↺ Reset</button>
+    <button class="ctrl" onclick="nextRound()">⏭ Next Round</button>
+    <button class="ctrl finish" onclick="confirmFinish()">🏆 End Game</button>
+  </div>
+
+  <div class="section-label">
+    <h2>Standings</h2>
+    <span class="hint">Tap a penalty to add points · lowest total wins</span>
+    <div class="rule"></div>
+  </div>
+
+  <div class="teams-grid" id="teamsGrid"></div>
+
+  <footer>Stay sharp · guard your cup · enjoy the chaos</footer>
+</div>
+
+<!-- RULES MODAL -->
+<div class="overlay" id="rulesModal">
+  <div class="modal rules">
+    <h2>📖 Game Rules</h2>
+    <h3>The Idea</h3>
+    <p>D-Druk is a team party game mixing homemade games with sneaky cup-stealing. Each penalty adds points to your team — and the team with the <b>fewest points wins</b>. Every penalty point becomes one shot, split inside the team however they like.</p>
+
+    <h3>How the game runs — step by step</h3>
+    <ul>
+      <li><b>Before start (15 min):</b> each team invents its own game. It must fit inside one round.</li>
+      <li><b>Round 1 — Team 1 hosts (10 min):</b> 0–3 min intro (MAX 3), then ~7 min playing. By the end there must be <b>exactly one loser</b>.</li>
+      <li><b>Round end:</b> at 10 seconds left the countdown takes over the screen — get to the table. When time hits zero, everyone puts their <b>empty</b> cup on the agreed table.</li>
+      <li>Points are handed out and cups refilled before the next round starts.</li>
+      <li><b>Round 2 — Team 2 hosts</b>, and so on until every team has hosted a game.</li>
+      <li><b>Game over:</b> totals are counted. Fewest points wins and goes on the D-Druk Winner List.</li>
+    </ul>
+
+    <h3>Penalties &amp; points</h3>
+    <div class="pen-legend">
+      <div><span>🥤 Lost Cup</span><b>+3</b></div>
+      <div><span>🎮 Lost Game (loser)</span><b>+2</b></div>
+      <div><span>⏰ Late to Table</span><b>+1</b></div>
+      <div><span>🚨 Rule Break</span><b>+2</b></div>
+    </div>
+    <p>At round end: not finished your drink → Rule Break. Didn't get your cup down in time → Late. Lost your cup → Lost Cup. Add live during play; use the undo (✕) on any logged penalty to remove a mistake.</p>
+
+    <h3>The cup system</h3>
+    <ul>
+      <li>Carry your cup at all times throughout the whole game.</li>
+      <li>A cup can be stolen — but it only counts if the owner doesn't catch who took it.</li>
+      <li>Caught in the act? The steal doesn't count.</li>
+      <li>Lost cup = penalty points for the team that lost it.</li>
+      <li><b>Get it back:</b> if you can name <b>who</b> took your cup <b>and where</b> it is — and you're right — they must hand it back.</li>
+    </ul>
+
+    <h3>What you must NOT do (Rule Break)</h3>
+    <ul>
+      <li>You may <b>not</b> physically rip a cup out of an opponent's hand.</li>
+      <li>During the countdown you may <b>not</b> touch anyone else's cups in any way.</li>
+      <li>You may not hold a cup for a teammate.</li>
+      <li>You may not physically block people from reaching the table.</li>
+    </ul>
+
+    <h3>One penalty per lost cup</h3>
+    <p>If you've lost your cup, you do <b>not</b> also get penalized for failing to put it on the table, and <b>not</b> for not finishing your drink — you can't drink from a cup you don't have.</p>
+
+    <h3>Designing a game</h3>
+    <ul>
+      <li>Fast to explain and play — finishes inside the round.</li>
+      <li>Use anything around the house.</li>
+      <li>Must produce exactly one loser (no winner required).</li>
+      <li>Keep it simple and chaotic.</li>
+    </ul>
+
+    <p class="tagline">Lowest score takes the crown. Have fun and stay safe! 🍺</p>
+    <div class="modal-actions">
+      <button class="ctrl primary" style="flex:1" onclick="closeRules()">Got it — let's play</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settingsModal">
+  <div class="modal">
+    <h2>⚙️ Settings</h2>
+    <div class="two-col">
+      <div class="field">
+        <label for="roundTimeInput">Round time (min)</label>
+        <input type="number" id="roundTimeInput" min="1" max="60" value="10">
+      </div>
+      <div class="field">
+        <label for="totalRoundsInput">Total rounds</label>
+        <input type="number" id="totalRoundsInput" min="1" max="20" value="6">
+      </div>
+    </div>
+    <div class="field">
+      <label for="numTeamsInput">Number of teams</label>
+      <input type="number" id="numTeamsInput" min="2" max="12" value="6">
+    </div>
+    <div class="field">
+      <label>Team names</label>
+      <div id="teamNamesContainer"></div>
+    </div>
+    <div class="field">
+      <label>Preview the round-end countdown</label>
+      <button class="ctrl" style="width:100%;justify-content:center" onclick="testCountdown()">🎬 Preview Countdown</button>
+    </div>
+    <div class="modal-actions">
+      <button class="ctrl" onclick="closeSettings()">Cancel</button>
+      <button class="ctrl primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="countdown" id="countdownOverlay">
+  <div class="cd-label">Round ending</div>
+  <div class="cd-number" id="countdownNumber">10</div>
+</div>
+
+<!-- GAME OVER -->
+<div class="gameover" id="gameoverOverlay">
+  <div class="go-card">
+    <h2>🏆 Game Over</h2>
+    <div class="go-sub">Lowest score wins</div>
+    <div class="podium" id="podium"></div>
+    <div class="go-note">Full standings</div>
+    <div class="full-board" id="fullBoard"></div>
+    <div id="saveRow" style="margin-bottom:14px">
+      <button class="ctrl finish" id="saveWinnerBtn" style="width:100%;max-width:420px;justify-content:center" onclick="saveToHall()">🏅 Save winner to the list</button>
+      <div id="saveConfirm" style="display:none;color:var(--lime);font-weight:700;margin-top:8px">✓ Saved to the D-Druk Winner List</div>
+    </div>
+    <div class="modal-actions" style="max-width:420px;margin:0 auto">
+      <button class="ctrl" onclick="closeGameOver()">Back</button>
+      <button class="ctrl primary" onclick="newGame()">New Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- HALL OF FAME -->
+<div class="overlay" id="hallModal">
+  <div class="modal">
+    <h2>🏅 D-Druk Winner List</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:18px">Every saved game, newest first. Stored on the game server.</p>
+    <div id="hallList"></div>
+    <div class="modal-actions">
+      <button class="ctrl" id="clearHallBtn" onclick="clearHall()">Clear list</button>
+      <button class="ctrl primary" onclick="closeHall()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const PENALTIES = {
+    cup:  { label:"Lost Cup",       btn:"Lost Cup",   emoji:"🥤", points:3 },
+    game: { label:"Lost Mini-Game", btn:"Lost Game",  emoji:"🎮", points:2 },
+    late: { label:"Late to Table",  btn:"Late",       emoji:"⏰", points:1 },
+    rule: { label:"Rule Break",     btn:"Rule Break", emoji:"🚨", points:2 }
+  };
+
+  let ROUND_TIME = 600;
+  let TOTAL_ROUNDS = 6;
+  let currentRound = 1;
+  let timeRemaining = ROUND_TIME;
+  let timerInterval = null;
+  let running = false;
+  let countdownFired = false;
+
+  let teams = Array.from({length:6}, (_,i)=>({ name:`Team ${i+1}`, members:'', errors:[] }));
+
+  const $ = id => document.getElementById(id);
+  const teamScore = t => t.errors.reduce((s,e)=>s+e.points,0);
+
+  function formatTime(s){
+    const m=Math.floor(s/60), sec=s%60;
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  function updateDisplay(){
+    const t=$('timer');
+    t.textContent=formatTime(Math.max(0,timeRemaining));
+    t.classList.remove('warning','danger');
+    if(timeRemaining<=60 && timeRemaining>30) t.classList.add('warning');
+    else if(timeRemaining<=30) t.classList.add('danger');
+
+    $('progressFill').style.width=(((ROUND_TIME-timeRemaining)/ROUND_TIME)*100)+'%';
+    $('currentRound').textContent=currentRound;
+    $('totalRounds').textContent=TOTAL_ROUNDS;
+
+    const pill=$('phasePill');
+    pill.classList.remove('live','paused');
+    if(running){ pill.textContent='● Live'; pill.classList.add('live'); }
+    else if(timeRemaining<ROUND_TIME && timeRemaining>0){ pill.textContent='Paused'; pill.classList.add('paused'); }
+    else if(timeRemaining<=0){ pill.textContent='Time!'; pill.classList.add('paused'); }
+    else pill.textContent='Ready';
+
+    $('startBtn').textContent = running ? '⏸ Pause' : (timeRemaining<ROUND_TIME && timeRemaining>0 ? '▶ Resume' : '▶ Start Round');
+  }
+
+  function toggleTimer(){
+    if(running){ running=false; updateDisplay(); return; }
+    if(timeRemaining<=0) return;
+    running=true;
+    countdownFired=false;
+    updateDisplay();
+    if(timerInterval) return;
+    timerInterval=setInterval(()=>{
+      if(!running) return;
+      timeRemaining--;
+      updateDisplay();
+      if(timeRemaining===10 && !countdownFired){ countdownFired=true; startCountdown(); }
+      if(timeRemaining<=0){ clearInterval(timerInterval); timerInterval=null; running=false; updateDisplay(); }
+    },1000);
+  }
+
+  function resetRound(){
+    clearInterval(timerInterval); timerInterval=null;
+    running=false; countdownFired=false; timeRemaining=ROUND_TIME;
+    updateDisplay();
+  }
+
+  function nextRound(){
+    if(currentRound<TOTAL_ROUNDS){ currentRound++; resetRound(); }
+    else confirmFinish();
+  }
+
+  function confirmFinish(){ showGameOver(); }
+
+  function addError(i,type){
+    const p=PENALTIES[type];
+    teams[i].errors.push({ type, label:p.label, emoji:p.emoji, points:p.points, round:currentRound });
+    renderTeams();
+  }
+  function undoError(i,idx){ teams[i].errors.splice(idx,1); renderTeams(); }
+
+  function renderTeams(){
+    const minScore = Math.min(...teams.map(teamScore));
+    const allZero = teams.every(t=>t.errors.length===0);
+    $('teamsGrid').innerHTML = teams.map((team,i)=>{
+      const score=teamScore(team);
+      const isLeader = !allZero && score===minScore;
+      const log = team.errors.length===0
+        ? '<div class="log-empty">No penalties yet — keep it that way</div>'
+        : team.errors.map((e,idx)=>`
+            <div class="log-item">
+              <span class="lbl">${e.emoji} ${e.label} <span class="pts">+${e.points}</span></span>
+              <span style="display:flex;align-items:center;gap:6px">
+                <span class="rnd">R${e.round}</span>
+                <button class="undo" title="Remove" onclick="undoError(${i},${idx})">✕</button>
+              </span>
+            </div>`).join('');
+      return `
+        <div class="team-card ${isLeader?'leader':''}">
+          <div class="team-top">
+            <div>
+              <div class="team-name">${isLeader?'<span class="crown">👑</span>':''}${escapeHtml(team.name)}</div>
+              ${team.members?`<div class="team-members">${escapeHtml(team.members)}</div>`:''}
+            </div>
+            <div style="text-align:right">
+              <div class="team-points">${score}</div>
+              <div class="points-label">points</div>
+            </div>
+          </div>
+          <div class="penalty-log">${log}</div>
+          <div class="add-row">
+            ${Object.entries(PENALTIES).map(([k,p])=>`
+              <button class="pen-btn" onclick="addError(${i},'${k}')">
+                <span class="em">${p.emoji}</span>${p.btn}
+                <span class="pv">+${p.points}</span>
+              </button>`).join('')}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ---- countdown ---- */
+  function startCountdown(){
+    const overlay=$('countdownOverlay'), num=$('countdownNumber');
+    let count=10;
+    overlay.classList.add('active');
+    paint(num,count); beep(600,.15,.4);
+    const iv=setInterval(()=>{
+      count--;
+      if(count>0){
+        paint(num,count);
+        beep(600+(10-count)*100,.15,Math.min(.9,.4+(10-count)*.05));
+      } else {
+        beep(1400,.15,.8);
+        setTimeout(()=>beep(1600,.15,.8),150);
+        setTimeout(()=>beep(2000,.4,.9),300);
+        num.outerHTML='<div class="cd-final" id="countdownNumber"><span class="big">TIME!</span>Cups on the table 🍺</div>';
+        $('countdownOverlay').querySelector('.cd-label').style.display='none';
+        setTimeout(()=>{
+          overlay.classList.remove('active'); clearInterval(iv);
+          overlay.innerHTML='<div class="cd-label">Round ending</div><div class="cd-number" id="countdownNumber">10</div>';
+        },3000);
+      }
+    },1000);
+  }
+  function paint(el,n){ el.textContent=n; el.style.animation='none'; void el.offsetWidth; el.style.animation='cdpulse .9s ease-out'; }
+
+  function beep(freq,dur,vol=.3){
+    try{
+      const ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.frequency.value=freq; osc.type='square';
+      g.gain.setValueAtTime(vol,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.01,ctx.currentTime+dur);
+      osc.start(); osc.stop(ctx.currentTime+dur);
+    }catch(e){}
+  }
+
+  /* ---- hall of fame (winner list) ---- */
+  let lastResult = null;
+
+  async function loadHall(){
+    const response = await fetch('/api/winners');
+    if(!response.ok) throw new Error('Could not load winner list');
+    return response.json();
+  }
+
+  async function addHallEntry(entry){
+    const response = await fetch('/api/winners', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify(entry)
+    });
+    if(!response.ok) throw new Error('Could not save winner');
+    return response.json();
+  }
+
+  async function clearHallEntries(){
+    const response = await fetch('/api/winners', { method:'DELETE' });
+    if(!response.ok) throw new Error('Could not clear winner list');
+    return response.json();
+  }
+
+  async function saveToHall(){
+    if(!lastResult) return;
+    const btn=$('saveWinnerBtn'), conf=$('saveConfirm');
+    btn.disabled=true; btn.style.opacity=.5; btn.style.cursor='default';
+    btn.textContent='Saving...';
+    try{
+      await addHallEntry({
+      winner: lastResult.ranked[0].name,
+      members: lastResult.ranked[0].members || '',
+      score:  lastResult.ranked[0].score,
+      rounds: lastResult.rounds,
+      teams:  lastResult.ranked.length,
+      standings: lastResult.ranked,
+      date: new Date().toISOString()
+      });
+      btn.textContent='🏅 Saved';
+      conf.style.display='block';
+    }catch(e){
+      btn.disabled=false; btn.style.opacity=1; btn.style.cursor='pointer';
+      btn.textContent='🏅 Save winner to the list';
+      conf.textContent='Could not save — is the game server running?';
+      conf.style.color='var(--magenta)'; conf.style.display='block';
+    }
+  }
+
+  function fmtDate(iso){
+    const d=new Date(iso);
+    return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})
+         + ' · ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+  }
+
+  async function renderHall(){
+    const el=$('hallList');
+    el.innerHTML='<div class="hall-empty">Loading winners...</div>';
+    $('clearHallBtn').style.display='none';
+    let list=[];
+    try{
+      list=await loadHall();
+    }catch(e){
+      el.innerHTML='<div class="hall-empty">Could not load winners. Start the game with the server and try again.</div>';
+      return;
+    }
+    if(list.length===0){
+      el.innerHTML='<div class="hall-empty">No games saved yet. Finish a game and save the winner!</div>';
+      $('clearHallBtn').style.display='none';
+      return;
+    }
+    $('clearHallBtn').style.display='';
+    el.innerHTML=list.map(g=>`
+      <div class="hall-entry">
+        <div class="he-top">
+          <span class="he-win">👑 ${escapeHtml(g.winner)}</span>
+          <span class="he-date">${fmtDate(g.date)}</span>
+        </div>
+        ${g.members?`<div class="he-members">${escapeHtml(g.members)}</div>`:''}
+        <div class="he-meta">Won with <b>${g.score}</b> pts · ${g.teams} teams · ${g.rounds} rounds</div>
+      </div>`).join('');
+  }
+
+  function openHall(){ $('hallModal').classList.add('active'); renderHall(); }
+  function closeHall(){ $('hallModal').classList.remove('active'); }
+  async function clearHall(){
+    if(confirm('Clear the entire winner list? This cannot be undone.')){
+      try{
+        await clearHallEntries();
+        renderHall();
+      }catch(e){
+        $('hallList').innerHTML='<div class="hall-empty">Could not clear winners. Is the game server running?</div>';
+      }
+    }
+  }
+
+  /* ---- game over ---- */
+  function showGameOver(){
+    running=false; clearInterval(timerInterval); timerInterval=null;
+    const ranked=teams.map(t=>({name:t.name,members:t.members||'',score:teamScore(t)})).sort((a,b)=>a.score-b.score);
+    lastResult={ ranked, rounds:TOTAL_ROUNDS };
+    // reset save button state for this game
+    const btn=$('saveWinnerBtn'), conf=$('saveConfirm');
+    btn.disabled=false; btn.style.opacity=1; btn.style.cursor='pointer';
+    btn.textContent='🏅 Save winner to the list';
+    conf.style.display='none'; conf.style.color='var(--lime)';
+    conf.textContent='✓ Saved to the D-Druk Winner List';
+    const order=[1,0,2]; const medals=['🥇','🥈','🥉']; const cls=['p1','p2','p3'];
+    $('podium').innerHTML = order.map(pos=>{
+      const r=ranked[pos]; if(!r) return '';
+      const realRank=pos;
+      return `<div class="pod ${cls[realRank]}">
+        <span class="medal">${medals[realRank]}</span>
+        <div class="pname">${escapeHtml(r.name)}</div>
+        <div class="ppts">${r.score}<small>pts</small></div>
+      </div>`;
+    }).join('');
+    $('fullBoard').innerHTML = ranked.map((r,i)=>`
+      <div class="fb-row ${i===0?'win':''}">
+        <span class="rank">${i+1}</span>
+        <span class="nm">${i===0?'👑 ':''}${escapeHtml(r.name)}${r.members?`<span class="fb-members">${escapeHtml(r.members)}</span>`:''}</span>
+        <span class="pt">${r.score} pts</span>
+      </div>`).join('');
+    $('gameoverOverlay').classList.add('active');
+  }
+  function closeGameOver(){ $('gameoverOverlay').classList.remove('active'); }
+  function newGame(){
+    teams.forEach(t=>t.errors=[]);
+    currentRound=1; resetRound(); renderTeams(); closeGameOver();
+  }
+
+  /* ---- modals ---- */
+  function openRules(){ $('rulesModal').classList.add('active'); }
+  function closeRules(){ $('rulesModal').classList.remove('active'); }
+  function openSettings(){
+    $('roundTimeInput').value=ROUND_TIME/60;
+    $('totalRoundsInput').value=TOTAL_ROUNDS;
+    $('numTeamsInput').value=teams.length;
+    renderTeamNameInputs();
+    $('settingsModal').classList.add('active');
+  }
+  function closeSettings(){ $('settingsModal').classList.remove('active'); }
+  function renderTeamNameInputs(){
+    const c=$('teamNamesContainer');
+    const n=parseInt($('numTeamsInput').value)||2;
+    c.innerHTML='';
+    for(let i=0;i<n;i++){
+      const name=teams[i]?teams[i].name:`Team ${i+1}`;
+      const members=teams[i]?(teams[i].members||''):'';
+      c.innerHTML+=`
+        <div class="team-setup">
+          <div class="team-name-row">
+            <span class="tag">Team ${i+1}</span>
+            <input type="text" id="teamName${i}" placeholder="Team name" value="${escapeHtml(name)}">
+          </div>
+          <input type="text" class="members-input" id="teamMembers${i}" placeholder="Participants (e.g. Anna, Mads, Sofie)" value="${escapeHtml(members)}">
+        </div>`;
+    }
+  }
+  function saveSettings(){
+    ROUND_TIME=(parseInt($('roundTimeInput').value)||10)*60;
+    TOTAL_ROUNDS=parseInt($('totalRoundsInput').value)||6;
+    const n=parseInt($('numTeamsInput').value)||2;
+    const newTeams=[];
+    for(let i=0;i<n;i++){
+      const inp=$(`teamName${i}`);
+      const mem=$(`teamMembers${i}`);
+      newTeams.push({
+        name: inp&&inp.value.trim()?inp.value.trim():`Team ${i+1}`,
+        members: mem?mem.value.trim():'',
+        errors: teams[i]?teams[i].errors:[]
+      });
+    }
+    teams=newTeams;
+    if(currentRound>TOTAL_ROUNDS) currentRound=TOTAL_ROUNDS;
+    resetRound(); renderTeams(); closeSettings();
+  }
+  function testCountdown(){ closeSettings(); startCountdown(); }
+
+  // close overlays on backdrop click
+  document.querySelectorAll('.overlay').forEach(o=>{
+    o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('active'); });
+  });
+  $('numTeamsInput').addEventListener('input',renderTeamNameInputs);
+
+  updateDisplay();
+  renderTeams();
+</script>
+</body>
+</html>
